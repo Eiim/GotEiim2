@@ -1,5 +1,6 @@
 import discord
 import os
+import csv
 
 # File managing stuff here
 def writeLine(category, snowflake, data):
@@ -9,10 +10,12 @@ def writeLine(category, snowflake, data):
 	fileName = f'./{category}/{int(snowflakePrefix)}.csv'
 	if(not os.path.isfile(fileName)):
 		f = open(fileName, 'a')
-		f.write('snowflake,user,created,clean_content,attachments\n')
+		w = csv.writer(f)
+		w.writerow(['snowflake','user','created','clean_content','attachments'])
 	else:
 		f = open(fileName, 'a')
-	f.write(data+'\n')
+		w = csv.writer(f)
+	w.writerow(data)
 	f.close()
 
 # Pycord stuff begins here
@@ -31,7 +34,7 @@ async def on_ready():
 @client.event
 async def on_message(message):
 	attachments = ' '.join([str(a) for a in message.attachments])
-	writeLine("messages", message.id, f'{message.id},{message.author.name}#{message.author.discriminator},{message.created_at},{message.clean_content},{attachments}')
+	writeLine("messages", message.id, [message.id, message.author.name+'#'+message.author.discriminator,message.created_at,message.clean_content,attachments])
 
 @client.event
 async def on_presence_update(before, after):
