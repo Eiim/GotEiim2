@@ -1,4 +1,21 @@
 import discord
+import os
+
+# File managing stuff here
+def writeLine(category, snowflake, data):
+	if(not os.path.exists('./'+category)):
+		os.mkdir('./'+category)
+	snowflakePrefix = round(snowflake/1e15)
+	fileName = f'./{category}/{int(snowflakePrefix)}.csv'
+	if(not os.path.isfile(fileName)):
+		f = open(fileName, 'a')
+		f.write('snowflake,user,created,clean_content,attachments\n')
+	else:
+		f = open(fileName, 'a')
+	f.write(data+'\n')
+	f.close()
+
+# Pycord stuff begins here
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -13,17 +30,12 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-	if message.author == client.user:
-		return
-
-	if message.content.startswith('$hello'):
-		await message.channel.send('Hello!')
-		print("Sent a message!")
-	else:
-		print(message.content)
+	attachments = ' '.join([str(a) for a in message.attachments])
+	writeLine("messages", message.id, f'{message.id},{message.author.name}#{message.author.discriminator},{message.created_at},{message.clean_content},{attachments}')
 
 @client.event
 async def on_presence_update(before, after):
+	return # temporarily disable
 	if(after.guild.id != 481120236318228480): # Raisels-exclusive :triumph:
 		return
 	
