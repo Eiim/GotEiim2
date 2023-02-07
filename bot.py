@@ -6,7 +6,7 @@ import csv
 def writeLine(category, snowflake, data):
 	if(not os.path.exists('./'+category)):
 		os.mkdir('./'+category)
-	snowflakePrefix = round(snowflake/1e15)
+	snowflakePrefix = int(snowflake/1e15)
 	fileName = f'./{category}/{int(snowflakePrefix)}.csv'
 	if(not os.path.isfile(fileName)):
 		f = open(fileName, 'a')
