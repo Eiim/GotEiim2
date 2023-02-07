@@ -21,9 +21,9 @@ digrams <- digrams %>%
   select(-count)
 
 # Load Discord message data
-messages <- data.frame(snowflake=double(0), user=character(0), channel=character(0), created=double(0), cleancontent=character(0), attachments=character(0))
+messages <- data.frame(snowflake=double(0), user=character(0), channel=character(0), channelid=double(0), server=character(0), serverid=double(0), created=double(0), cleancontent=character(0), attachments=character(0))
 for(dat in list.files("../messages")) {
-  messages <- rbind(messages, read_csv(paste0("../messages/", dat), col_types="dccTcc"))
+  messages <- rbind(messages, read_csv(paste0("../messages/", dat), col_types="dccdcdTcc"))
 }
 
 text = messages$clean_content
