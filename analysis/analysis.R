@@ -27,6 +27,7 @@ for(dat in list.files("../messages")) {
 }
 
 text = messages$clean_content
+text = gsub("https?://[^\\x00-\\x20]+\\.[^\\x00-\\x20]+", "", text, perl=TRUE) # Remove (obvious) URLs
 text = gsub("'", "", text) # Remove 's
 text = gsub("[^A-Za-z ]", " ", text) # Alpha only
 text = tolower(text) # Lowercase
