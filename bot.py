@@ -11,7 +11,7 @@ def writeLine(category, snowflake, data):
 	if(not os.path.isfile(fileName)):
 		f = open(fileName, 'a')
 		w = csv.writer(f)
-		w.writerow(['snowflake','user','created','clean_content','attachments'])
+		w.writerow(['snowflake','user','channel','created','clean_content','attachments'])
 	else:
 		f = open(fileName, 'a')
 		w = csv.writer(f)
@@ -34,7 +34,7 @@ async def on_ready():
 @client.event
 async def on_message(message):
 	attachments = ' '.join([str(a) for a in message.attachments])
-	writeLine("messages", message.id, [message.id, message.author.name+'#'+message.author.discriminator,message.created_at,message.clean_content,attachments])
+	writeLine("messages", message.id, [message.id, message.author.name+'#'+message.author.discriminator,message.channel.name,message.created_at,message.clean_content,attachments])
 
 @client.event
 async def on_presence_update(before, after):
