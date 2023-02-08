@@ -26,7 +26,12 @@ for(dat in list.files("../messages")) {
   messages <- rbind(messages, read_csv(paste0("../messages/", dat), col_types="dccdcdTcc"))
 }
 
-text = messages$clean_content
+messages <- replace_na(messages, list(clean_content = ""))
+
+filteredMessages <- messages %>%
+  filter(substr(clean_content, 1, 1)!="$") %>% # Remove commands
+  filter(user != "GotEiim#7055") # Remove messages from the bot
+text = filteredMessages$clean_content
 text = gsub("https?://[^\\x00-\\x20]+\\.[^\\x00-\\x20]+", "", text, perl=TRUE) # Remove (obvious) URLs
 text = gsub("'", "", text) # Remove 's
 text = gsub("[^A-Za-z ]", " ", text) # Alpha only
