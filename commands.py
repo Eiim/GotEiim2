@@ -64,9 +64,8 @@ async def on_message(message):
 			command = message.content.split()[0][1:]
 			await message.channel.send(f"I don't know how to '{command}'. Maybe complain to <@234819459884253185>.")
 	
-client.run(open('secret.txt', 'r').readline())
-
-# Possible rare race condition with these
 if not os.path.isfile('analysis/count_1w.csv'):
 	urllib.urlretrieve('https://norvig.com/ngrams/count_1w.txt', 'analysis/count_1w.csv')
 nltk.download('stopwords')
+
+client.run(open('secret.txt', 'r').readline())
