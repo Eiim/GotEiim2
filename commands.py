@@ -1,7 +1,7 @@
 import discord
 import pandas as pd
 import numpy as np
-import urllib
+import urllib.request
 import re
 import os
 import nltk
@@ -65,7 +65,7 @@ async def on_message(message):
 			await message.channel.send(f"I don't know how to '{command}'. Maybe complain to <@234819459884253185>.")
 	
 if not os.path.isfile('analysis/count_1w.csv'):
-	urllib.urlretrieve('https://norvig.com/ngrams/count_1w.txt', 'analysis/count_1w.csv')
+	urllib.request.urlretrieve('https://norvig.com/ngrams/count_1w.txt', 'analysis/count_1w.csv')
 nltk.download('stopwords')
 
 client.run(open('secret.txt', 'r').readline())
