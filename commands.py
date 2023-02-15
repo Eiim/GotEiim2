@@ -17,11 +17,48 @@ stopwds = ["i","me","my","myself","we","our","ours","ourselves","you","your","yo
 
 # Analysis functions
 def word_freq_analysis(message):
-	messages = pd.concat([pd.read_csv(f'messages/{file[0]}') for (path, dn, file) in os.walk('messages/')])
-	messages = messages.replace(np.nan, '')
-	messages = messages[[(len(x) == 0 or x[0] != "$") for x in messages['clean_content']]]
-	messages = messages[~(messages['user'] == 'GotEiim#7055')]
+	commandparts = message.content.split()
+	if(len(commandparts) < 2):
+		commandparts[1] = "server"
 	
+	messages = pd.concat([pd.read_csv(f'messages/{f}') for (path, dn, files) in os.walk('messages/') for f in files])
+	messages = messages.replace(np.nan, '')
+	messages = messages[[(len(x) > 0 and x[0] != "$") for x in messages['clean_content']]]
+	messages = messages[~(messages['userid'] == 510251679283806209)]
+	
+	byline = "overall"
+	
+	if(commandparts[1] == "server"):
+		server = message.guild.id
+		if(len(commandparts) > 2):
+			server = int(commandparts[2])
+			byline = "in that server"
+		else:
+			byline = "in this server"
+		messages = messages[messages['serverid'] == server]
+	elif(commandparts[1] == "channel"):
+		channel = message.channel.id
+		if(len(commandparts) > 2):
+			channel = commandparts[2]
+			if(channel[0] == "<"):	
+				channel = channel[2:-1] # Strip off extra characters in mentions
+			byline = "in that channel"
+		else:
+			byline = "in this channel"
+		messages = messages[messages['channelid'] == int(channel)]
+	elif(commandparts[1] == "user"):
+		server = message.guild.id
+		messages = messages[messages['serverid'] == server]
+		user = message.author.id
+		if(len(commandparts) > 2):
+			user = commandparts[2]
+			if(user[0] == "<"):	
+				user = user[2:-1] # Strip off extra characters in mentions
+			byline = "by that user"
+		else:
+			byline = "by you"
+		messages = messages[messages['userid'] == int(user)]
+		
 	text = messages['clean_content']
 	text = [re.sub("https?://[^\\x00-\\x20]+\\.[^\\x00-\\x20]+", "", x) for x in text] # Remove URLs
 	#text = [re.sub("'", "", x) for x in text] # Remove 's to simplify words (don't -> dont)
@@ -45,7 +82,7 @@ def word_freq_analysis(message):
 	wordUse = mergeWords.word.tolist()
 	wordUse = [x for x in wordUse if x not in stopwds]
 	
-	return wordUse[0:5]
+	return (byline,wordUse[0:5])
 	
 def parseConversations(snowflakeFrom):
 	messages = pd.concat([pd.read_csv(f'messages/{file[0]}') for (path, dn, file) in os.walk('messages/')])
@@ -62,14 +99,13 @@ async def on_message(message):
 		if(message.content.startswith("$help")):
 			await message.channel.send("Listen, I don't do much right now. I just spy on you, like Google. 👁️")
 		elif(message.content.startswith("$topwords")):
-			topWords = word_freq_analysis(message)
-			await message.channel.send(f"Top words that I've seen overall: \n1. {topWords[0]}\n2. {topWords[1]}\n3. {topWords[2]}\n4. {topWords[3]}\n5. {topWords[4]}")
+			byline, topWords = word_freq_analysis(message)
+			await message.channel.send(f"Top words that I've seen {byline}: \n1. {topWords[0]}\n2. {topWords[1]}\n3. {topWords[2]}\n4. {topWords[3]}\n5. {topWords[4]}")
 		else:
 			command = message.content.split()[0][1:]
 			await message.channel.send(f"I don't know how to '{command}'. Maybe complain to <@234819459884253185>.")
 	
 if not os.path.isfile('analysis/count_1w.csv'):
 	urllib.request.urlretrieve('https://norvig.com/ngrams/count_1w.txt', 'analysis/count_1w.csv')
-nltk.download('stopwords')
 
 client.run(open('secret.txt', 'r').readline())
