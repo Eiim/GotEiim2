@@ -15,6 +15,15 @@ client = discord.Client(intents=intents)
 # Stopwords from Snowball
 stopwds = ["i","me","my","myself","we","our","ours","ourselves","you","your","yours","yourself","yourselves","he","him","his","himself","she","her","hers","herself","it","its","itself","they","them","their","theirs","themselves","what","which","who","whom","this","that","these","those","am","is","are","was","were","be","been","being","have","has","had","having","do","does","did","doing","would","should","could","ought","i'm","you're","he's","she's","it's","we're","they're","i've","you've","we've","they've","i'd","you'd","he'd","she'd","we'd","they'd","i'll","you'll","he'll","she'll","we'll","they'll","isn't","aren't","wasn't","weren't","hasn't","haven't","hadn't","doesn't","don't","didn't","won't","wouldn't","shan't","shouldn't","can't","cannot","couldn't","mustn't","let's","that's","who's","what's","here's","there's","when's","where's","why's","how's","a","an","the","and","but","if","or","because","as","until","while","of","at","by","for","with","about","against","between","into","through","during","before","after","above","below","to","from","up","down","in","out","on","off","over","under","again","further","then","once","here","there","when","where","why","how","all","any","both","each","few","more","most","other","some","such","no","nor","not","only","own","same","so","than","too","very","will"]
 
+helptext = """GotEiim2 Help:
+`$help`: Get help for GotEiim2
+  - format: `$help`
+`$topwords`: Get the most-used words compared to their overall usage in English, filtered by a server, channel, or user.
+  - format: `$topwords [category] [specifier]`
+    - `category`: One of "server", "channel", or "user". Optional, defaults to "server".
+    - `specifier`: A snowflake ID or mention of the server, channel, or user to filter on. Optional, defaults to the server/channel the message is sent in or the user who sent it.
+"""
+
 # Analysis functions
 def word_freq_analysis(message):
 	commandparts = message.content.split()
@@ -97,7 +106,7 @@ async def on_message(message):
 		return
 	if(message.content.startswith("$")):
 		if(message.content.startswith("$help")):
-			await message.channel.send("Listen, I don't do much right now. I just spy on you, like Google. 👁️")
+			await message.channel.send(helptext)
 		elif(message.content.startswith("$topwords")):
 			byline, topWords = word_freq_analysis(message)
 			await message.channel.send(f"Top words that I've seen {byline}: \n1. {topWords[0]}\n2. {topWords[1]}\n3. {topWords[2]}\n4. {topWords[3]}\n5. {topWords[4]}")
