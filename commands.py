@@ -19,7 +19,7 @@ stopwds = ["i","me","my","myself","we","our","ours","ourselves","you","your","yo
 def word_freq_analysis(message):
 	commandparts = message.content.split()
 	if(len(commandparts) < 2):
-		commandparts[1] = "server"
+		commandparts.append("server")
 	
 	messages = pd.concat([pd.read_csv(f'messages/{f}') for (path, dn, files) in os.walk('messages/') for f in files])
 	messages = messages.replace(np.nan, '')
