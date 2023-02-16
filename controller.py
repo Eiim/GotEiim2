@@ -22,7 +22,7 @@ class Controller(cmd.Cmd):
 			print("Need a process to kill")
 			return
 		for process in psutil.process_iter():
-			if(process.status() == 'running' and "python" in process.name() and name+".py" in process.cmdline()):
+			if(process.status() != 'stopped' and "python" in process.name() and name+".py" in process.cmdline()):
 				process.kill()
 				print("Killed")
 	
