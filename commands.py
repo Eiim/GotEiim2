@@ -70,6 +70,7 @@ def word_freq_analysis(message):
 		
 	text = messages['clean_content']
 	text = [re.sub("https?://[^\\x00-\\x20]+\\.[^\\x00-\\x20]+", "", x) for x in text] # Remove URLs
+	text = [re.sub("<:.+?:\d+>", "", x) for x in text] # Remove custom emojis
 	#text = [re.sub("'", "", x) for x in text] # Remove 's to simplify words (don't -> dont)
 	text = [re.sub("[^A-Za-z' ]", "", x) for x in text] # Alpha only
 	text = [x.lower() for x in text] # Lowercase
