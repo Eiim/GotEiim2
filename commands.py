@@ -19,9 +19,9 @@ helptext = """GotEiim2 Help:
 `$help`: Get help for GotEiim2
   - format: `$help`
 `$topwords`: Get the most-used words compared to their overall usage in English, filtered by a server, channel, or user.
-  - format: `$topwords [category] [specifier]`
+  - format: `$topwords [category] [specifier]` or `$topwords [specifier]`
     - `category`: One of "server", "channel", or "user". Optional, defaults to "server".
-    - `specifier`: A snowflake ID or mention of the server, channel, or user to filter on. Optional, defaults to the server/channel the message is sent in or the user who sent it.
+    - `specifier`: A snowflake ID or mention of the server, channel, or user to filter on. Optional, defaults to the server/channel the message is sent in or the user who sent it. If `category` is excluded, this must be a user or channel mention.
 """
 
 # Analysis functions
@@ -67,6 +67,19 @@ def word_freq_analysis(message):
 		else:
 			byline = "by you"
 		messages = messages[messages['userid'] == int(user)]
+	elif(re.search("<[@#]\d+>", commandparts[1])):
+		if(commandparts[1][1] == "@"):
+			server = message.guild.id
+			messages = messages[messages['serverid'] == server]
+			user = commandparts[1][2:-1]
+			byline = "by that user"
+			messages = messages[messages['userid'] == int(user)]
+		else:
+			channel = commandparts[1][2:-1]
+			byline = "in that channel"
+			messages = messages[messages['channelid'] == int(channel)]
+	else:
+		byline = 'overall, ignoring "'+commandparts[1]+'"'
 		
 	text = messages['clean_content']
 	text = [re.sub("https?://[^\\x00-\\x20]+\\.[^\\x00-\\x20]+", "", x) for x in text] # Remove URLs
