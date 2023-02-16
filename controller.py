@@ -11,7 +11,7 @@ class Controller(cmd.Cmd):
 	
 	def do_status(self, line):
 		for process in psutil.process_iter():
-			if(process.status() == 'running' and "python" in process.name()):
+			if(process.status() != 'stopped' and "python" in process.name()):
 				if("monitor.py" in process.cmdline()):
 					print("Monitor running")
 				elif("responder.py" in process.cmdline()):
