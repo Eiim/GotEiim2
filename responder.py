@@ -112,7 +112,7 @@ def parseConversations(snowflakeFrom):
 
 @client.event
 async def on_ready():
-	print(f'Commander logged in as {client.user}')
+	print(f'Responder logged in as {client.user}')
 
 @client.event
 async def on_message(message):
