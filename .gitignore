@@ -131,3 +131,4 @@ dmypy.json
 secret.txt
 *.csv
 *.Rhistory
+*.out
