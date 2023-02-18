@@ -29,6 +29,7 @@ class Controller(cmd.Cmd):
 	def do_start(self, name):
 		if(not name in pnames):
 			print("Need a process to start")
+			return
 		outfile = open(name+'.out', 'a')
 		subprocess.Popen([sys.executable, name+".py"], stdout=outfile, stdin=outfile)
 		print("Started")
