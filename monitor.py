@@ -9,11 +9,11 @@ def writeLine(category, snowflake, data):
 	snowflakePrefix = int(snowflake/1e15)
 	fileName = f'./{category}/{int(snowflakePrefix)}.csv'
 	if(not os.path.isfile(fileName)):
-		f = open(fileName, 'a')
+		f = open(fileName, 'a', newline='')
 		w = csv.writer(f)
 		w.writerow(['snowflake','user','userid','channel','channelid','server','serverid','created','content','attachments','replyto'])
 	else:
-		f = open(fileName, 'a')
+		f = open(fileName, 'a', newline='')
 		w = csv.writer(f)
 	w.writerow(data)
 	f.close()
@@ -23,9 +23,9 @@ def removeLine(category, snowflake):
 	fileName = f'./{category}/{int(snowflakePrefix)}.csv'
 	if(not os.path.isfile(fileName)):
 		return
-	f = open(fileName, 'r')
+	f = open(fileName, 'r', newline='')
 	lines = f.readlines()
-	f = open(fileName, 'w')
+	f = open(fileName, 'w', newline='')
 	for line in lines:
 		if(not line.startswith(str(snowflake))):
 			f.write(line)
@@ -36,9 +36,9 @@ def editLine(category, snowflake, data):
 	fileName = f'./{category}/{int(snowflakePrefix)}.csv'
 	if(not os.path.isfile(fileName)):
 		return
-	f = open(fileName, 'r')
+	f = open(fileName, 'r', newline='')
 	lines = f.readlines()
-	f = open(fileName, 'w')
+	f = open(fileName, 'w', newline='')
 	w = csv.writer(f)
 	for line in lines:
 		if(line.startswith(str(snowflake))):
