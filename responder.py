@@ -32,7 +32,7 @@ def word_freq_analysis(message):
 	
 	messages = pd.concat([pd.read_csv(f'messages/{f}') for (path, dn, files) in os.walk('messages/') for f in files])
 	messages = messages.replace(np.nan, '')
-	messages = messages[[(len(x) > 0 and x[0] != "$") for x in messages['clean_content']]]
+	messages = messages[[(len(x) > 0 and x[0] != "$") for x in messages['content']]]
 	messages = messages[~(messages['userid'] == 510251679283806209)]
 	
 	byline = "overall"
