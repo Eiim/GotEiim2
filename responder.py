@@ -81,7 +81,7 @@ def word_freq_analysis(message):
 	else:
 		byline = 'overall, ignoring "'+commandparts[1]+'"'
 		
-	text = messages['clean_content']
+	text = messages['content']
 	text = [re.sub("https?://[^\\x00-\\x20]+\\.[^\\x00-\\x20]+", "", x) for x in text] # Remove URLs
 	text = [re.sub("<:.+?:\d+>", "", x) for x in text] # Remove custom emojis
 	text = [re.sub("<[@#]\d+>", "", x) for x in text] # Remove mentions
