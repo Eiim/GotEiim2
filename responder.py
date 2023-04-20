@@ -66,14 +66,14 @@ def word_freq_analysis(message):
 			byline = "by that user"
 		else:
 			byline = "by you"
-		messages = messages[messages['userid'] == int(user)]
+		messages = messages[messages['userid'] == user]
 	elif(re.search("<[@#]\d+>", commandparts[1])):
 		if(commandparts[1][1] == "@"):
 			server = message.guild.id
 			messages = messages[messages['serverid'] == server]
 			user = commandparts[1][2:-1]
 			byline = "by that user"
-			messages = messages[messages['userid'] == int(user)]
+			messages = messages[messages['userid'] == user]
 		else:
 			channel = commandparts[1][2:-1]
 			byline = "in that channel"
