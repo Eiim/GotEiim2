@@ -3,7 +3,7 @@ import psutil
 import sys
 import subprocess
 
-pnames = ['monitor', 'responder']
+pnames = ['monitor', 'responder', 'messenger']
 
 class Controller(cmd.Cmd):
 	intro = 'GotEiim2 Bot Interactive Shell'
