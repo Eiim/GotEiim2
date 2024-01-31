@@ -125,6 +125,10 @@ async def on_message(message):
 		elif(message.content.startswith("$topwords")):
 			byline, topWords = word_freq_analysis(message)
 			await message.channel.send(f"Top words that I've seen {byline}: \n1. {topWords[0]}\n2. {topWords[1]}\n3. {topWords[2]}\n4. {topWords[3]}\n5. {topWords[4]}")
+		elif(len(message.content) > 1 and message.content[1].isnumeric):
+			print("Ignoring likely money amount or LaTeX")
+		elif(len(message.content) > 1 and message.content[1] == "\\"):
+			print("Ignoring likely LaTeX")
 		else:
 			command = message.content.split()[0][1:]
 			await message.channel.send(f"I don't know how to '{command}'. Maybe complain to <@234819459884253185>.")
