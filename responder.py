@@ -54,7 +54,7 @@ def word_freq_analysis(message):
 			byline = "in that channel"
 		else:
 			byline = "in this channel"
-		messages = messages[messages['channelid'] == int(channel)]
+		messages = messages[messages['channelid'] == channel]
 	elif(commandparts[1] == "user"):
 		server = message.guild.id
 		messages = messages[messages['serverid'] == server]
@@ -77,11 +77,12 @@ def word_freq_analysis(message):
 		else:
 			channel = commandparts[1][2:-1]
 			byline = "in that channel"
-			messages = messages[messages['channelid'] == int(channel)]
+			messages = messages[messages['channelid'] == channel]
 	else:
 		byline = 'overall, ignoring "'+commandparts[1]+'"'
 		
 	text = messages['content']
+	print(text)
 	text = [re.sub("https?://[^\\x00-\\x20]+\\.[^\\x00-\\x20]+", "", x) for x in text] # Remove URLs
 	text = [re.sub("<:.+?:\d+>", "", x) for x in text] # Remove custom emojis
 	text = [re.sub("<[@#]\d+>", "", x) for x in text] # Remove mentions
