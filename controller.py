@@ -29,7 +29,7 @@ class Controller(cmd.Cmd):
 	
 	def do_start(self, name):
 		if(name == "all"):
-			[do_start(self, n) for n in pnames]
+			[self.do_start(self, n) for n in pnames]
 		if(not name in pnames):
 			print("Need a process to start")
 			return

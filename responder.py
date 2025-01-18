@@ -30,7 +30,11 @@ def word_freq_analysis(message):
 	if(len(commandparts) < 2):
 		commandparts.append("server")
 	
-	messages = pd.concat([pd.read_csv(f'messages/{f}') for (path, dn, files) in os.walk('messages/') for f in files])
+	for (path, dn, files) in os.walk('messages/'):
+		for f in files:
+			print(f)
+			pd.read_csv(f'messages/{f}')
+	messages = pd.concat([(pd.read_csv(f'messages/{f}'),print(f)) for (path, dn, files) in os.walk('messages/') for f in files])
 	messages = messages.replace(np.nan, '')
 	messages = messages[[(len(x) > 0 and x[0] != "$") for x in messages['content']]]
 	messages = messages[~(messages['userid'] == 510251679283806209)]
@@ -67,7 +71,7 @@ def word_freq_analysis(message):
 		else:
 			byline = "by you"
 		messages = messages[messages['userid'] == user]
-	elif(re.search("<[@#]\d+>", commandparts[1])):
+	elif(re.search("<[@#]\\d+>", commandparts[1])):
 		if(commandparts[1][1] == "@"):
 			server = message.guild.id
 			messages = messages[messages['serverid'] == server]
@@ -84,8 +88,8 @@ def word_freq_analysis(message):
 	text = messages['content']
 	print(text)
 	text = [re.sub("https?://[^\\x00-\\x20]+\\.[^\\x00-\\x20]+", "", x) for x in text] # Remove URLs
-	text = [re.sub("<:.+?:\d+>", "", x) for x in text] # Remove custom emojis
-	text = [re.sub("<[@#]\d+>", "", x) for x in text] # Remove mentions
+	text = [re.sub("<:.+?:\\d+>", "", x) for x in text] # Remove custom emojis
+	text = [re.sub("<[@#]\\d+>", "", x) for x in text] # Remove mentions
 	#text = [re.sub("'", "", x) for x in text] # Remove 's to simplify words (don't -> dont)
 	text = [re.sub("[^A-Za-z' ]", "", x) for x in text] # Alpha only
 	text = [x.lower() for x in text] # Lowercase

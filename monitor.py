@@ -47,7 +47,6 @@ def editLine(category, snowflake, data):
 			f.write(line)
 
 # Pycord stuff begins here
-
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True

@@ -12,7 +12,7 @@ intents.message_content = True
 client = discord.Client(intents=intents)
 
 async def time_messages():
-	channel = # Add channel/thread ID here
+	channel = 1186345028679897228 # Add channel/thread ID here
 	folder = "../mosers_powers/messages/"
 
 	while True:
