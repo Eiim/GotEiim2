@@ -1,50 +1,37 @@
+import datetime
 import discord
 import os
 import csv
+import sqlite3
 
-# File managing stuff here
-def writeLine(category, snowflake, data):
-	if(not os.path.exists('./'+category)):
-		os.mkdir('./'+category)
-	snowflakePrefix = int(snowflake/1e15)
-	fileName = f'./{category}/{int(snowflakePrefix)}.csv'
-	if(not os.path.isfile(fileName)):
-		f = open(fileName, 'a', newline='')
-		w = csv.writer(f)
-		w.writerow(['snowflake','user','userid','channel','channelid','server','serverid','created','content','attachments','replyto'])
-	else:
-		f = open(fileName, 'a', newline='')
-		w = csv.writer(f)
-	w.writerow(data)
-	f.close()
+# Connect to database
+con = sqlite3.connect("goteiim.db")
+cur = con.cursor()
+cur.execute("""CREATE TABLE IF NOT EXISTS messages (
+				Snowflake INTEGER PRIMARY KEY,
+				Author_Name TEXT,
+				Author_ID INTEGER,
+				Channel_Name TEXT,
+				Channel_ID INTEGER,
+				Server_Name TEXT,
+				Server_ID INTEGER,
+				Created INTEGER,
+				Contents TEXT,
+				Attachments TEXT,
+				Reply_TO INTEGER
+			)""")
+con.commit()
 
-def removeLine(category, snowflake):
-	snowflakePrefix = int(snowflake/1e15)
-	fileName = f'./{category}/{int(snowflakePrefix)}.csv'
-	if(not os.path.isfile(fileName)):
-		return
-	f = open(fileName, 'r', newline='')
-	lines = f.readlines()
-	f = open(fileName, 'w', newline='')
-	for line in lines:
-		if(not line.startswith(str(snowflake))):
-			f.write(line)
+# Set datetime adapter/covnerter (converter may not be necessary)
+def adapt_datetime_epoch(val):
+    """Adapt datetime.datetime to Unix timestamp."""
+    return int(val.timestamp())
+sqlite3.register_adapter(datetime.datetime, adapt_datetime_epoch)
 
-def editLine(category, snowflake, data):
-	print(snowflake)
-	snowflakePrefix = int(snowflake/1e15)
-	fileName = f'./{category}/{int(snowflakePrefix)}.csv'
-	if(not os.path.isfile(fileName)):
-		return
-	f = open(fileName, 'r', newline='')
-	lines = f.readlines()
-	f = open(fileName, 'w', newline='')
-	w = csv.writer(f)
-	for line in lines:
-		if(line.startswith(str(snowflake))):
-			w.writerow(data)
-		else:
-			f.write(line)
+def convert_timestamp(val):
+    """Convert Unix epoch timestamp to datetime.datetime object."""
+    return datetime.datetime.fromtimestamp(int(val))
+sqlite3.register_converter("timestamp", convert_timestamp)
 
 # Pycord stuff begins here
 intents = discord.Intents.default()
@@ -64,31 +51,48 @@ async def on_message(message):
 	reference = ''
 	if(message.reference):
 		reference = message.reference.message_id
-	writeLine("messages", message.id, [message.id, message.author.name, message.author.id, message.channel.name, message.channel.id, message.guild.name, message.guild.id, message.created_at, message.content, attachments, reference])
+	cur.execute("INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+				(message.id, message.author.name, message.author.id, message.channel.name, message.channel.id, message.guild.name, message.guild.id, message.created_at, message.content, attachments, reference))
+	con.commit()
 
 @client.event
 async def on_message_delete(message):
-	removeLine("messages", message.id)
+	print(message.id)
+	print(type(message.id))
+	cur.execute("DELETE FROM messages WHERE Snowflake = ?", (message.id,))
+	con.commit()
 
 @client.event
 async def on_message_edit(before, after):
-	print(after.id)
 	attachments = ' '.join([str(a) for a in after.attachments])
 	reference = ''
 	if(after.reference):
 		reference = after.reference.message_id
-	editLine("messages", after.id, [after.id, after.author.name, after.author.id, after.channel.name, after.channel.id, after.guild.name, after.guild.id, after.created_at, after.content, attachments, reference])
+	cur.execute("""UPDATE messages SET
+					Author_Name = ?,
+					Author_ID = ?,
+					Channel_Name = ?,
+					Channel_ID = ?,
+					Server_Name = ?,
+					Server_ID = ?,
+					Created = ?,
+					Contents = ?,
+					Attachments = ?,
+					Reply_TO = ?
+					WHERE Snowflake = ?
+				""", (after.author.name, after.author.id, after.channel.name, after.channel.id, after.guild.name, after.guild.id, after.created_at, after.content, attachments, reference, after.id))
+	con.commit()
 
 @client.event
 async def on_presence_update(before, after):
-	return # temporarily disable
+	#return # temporarily disable
 	if(after.guild.id != 481120236318228480): # Raisels-exclusive :triumph:
 		return
 	
 	if(before.status != after.status):
-		print(f'status change: {after.nick} ({after.name}#{after.discriminator}) from {before.status} to {after.status}')
+		print(f'status change: {after.nick} ({after.name}) from {before.status} to {after.status}')
 	else:
-		print(f'activity change: {after.nick} ({after.name}#{after.discriminator}) from {before.activity} to {after.activity}')
+		print(f'activity change: {after.nick} ({after.name}) from {before.activity} to {after.activity}')
 		print([a.to_dict() for a in after.activities])
 
 client.run(open('secret.txt', 'r').readline())
