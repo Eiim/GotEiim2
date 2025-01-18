@@ -130,6 +130,11 @@ async def on_message(message):
 		elif(message.content.startswith("$topwords")):
 			byline, topWords = word_freq_analysis(message)
 			await message.channel.send(f"Top words that I've seen {byline}: \n1. {topWords[0]}\n2. {topWords[1]}\n3. {topWords[2]}\n4. {topWords[3]}\n5. {topWords[4]}")
+		elif(message.content.startswith("$fullrefresh")):
+			if(message.author.id == 234819459884253185):
+				print("Ignoring refresh command for monitor")
+			else:
+				await message.channel.send("Hey! You're not allowed to touch that button!")
 		elif(len(message.content) > 1 and message.content[1].isnumeric()):
 			print("Ignoring likely money amount or LaTeX")
 		elif(len(message.content) > 1 and message.content[1] == "\\"):

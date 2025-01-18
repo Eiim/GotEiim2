@@ -3,9 +3,14 @@ import discord
 import os
 import csv
 import sqlite3
+import sqlite_zstd
+import time
+import random
 
 # Connect to database
 con = sqlite3.connect("goteiim.db")
+con.enable_load_extension(True)
+sqlite_zstd.load(con)
 cur = con.cursor()
 cur.execute("""CREATE TABLE IF NOT EXISTS messages (
 				Snowflake INTEGER PRIMARY KEY,
@@ -41,29 +46,87 @@ intents.presences = True
 
 client = discord.Client(intents=intents)
 
+isfrozen = False
+
 @client.event
 async def on_ready():
 	print(f'Monitor logged in as {client.user}')
 
 @client.event
 async def on_message(message):
-	attachments = ' '.join([str(a) for a in message.attachments])
-	reference = ''
-	if(message.reference):
-		reference = message.reference.message_id
-	cur.execute("INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-				(message.id, message.author.name, message.author.id, message.channel.name, message.channel.id, message.guild.name, message.guild.id, message.created_at, message.content, attachments, reference))
-	con.commit()
+	global isfrozen
+	if isfrozen:
+		return
+	if message.content.startswith("$fullrefresh") and message.author.id == 234819459884253185:
+		isfrozen = True
+		print(message.guild.me.guild_permissions.read_message_history)
+		await message.channel.send("Okay! Initiating a full message refresh for this server. Clearning out old messages...")
+		cur.execute("DELETE FROM messages WHERE Server_ID = ?", (message.guild.id,))
+		con.commit()
+		await message.channel.send("Old messages cleared. Redownloading messages. This may take a long time!")
+		for channel in message.guild.text_channels:
+			async for thread in channel.archived_threads(limit=None):
+				print("Downloading "+thread.name)
+				await message.channel.send("Downloading "+thread.name)
+				async for m2 in thread.history(limit=None, oldest_first=True):
+					attachments = ' '.join([str(a) for a in m2.attachments])
+					reference = ''
+					if(m2.reference):
+						reference = m2.reference.message_id
+					cur.execute("INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+								(m2.id, m2.author.name, m2.author.id, m2.channel.name, m2.channel.id, m2.guild.name, m2.guild.id, m2.created_at, m2.content, attachments, reference))
+				print("Finishing "+thread.name)
+				con.commit()
+			
+			for thread in channel.threads:
+				print("Downloading "+thread.name)
+				await message.channel.send("Downloading "+thread.name)
+				async for m2 in thread.history(limit=None, oldest_first=True):
+					attachments = ' '.join([str(a) for a in m2.attachments])
+					reference = ''
+					if(m2.reference):
+						reference = m2.reference.message_id
+					cur.execute("INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+								(m2.id, m2.author.name, m2.author.id, m2.channel.name, m2.channel.id, m2.guild.name, m2.guild.id, m2.created_at, m2.content, attachments, reference))
+				print("Finishing "+thread.name)
+				con.commit()
+			
+			print("Downloading "+channel.name)
+			await message.channel.send("Downloading "+channel.name)
+			async for m2 in channel.history(limit=None, oldest_first=True):
+				attachments = ' '.join([str(a) for a in m2.attachments])
+				reference = ''
+				if(m2.reference):
+					reference = m2.reference.message_id
+				cur.execute("INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+							(m2.id, m2.author.name, m2.author.id, m2.channel.name, m2.channel.id, m2.guild.name, m2.guild.id, m2.created_at, m2.content, attachments, reference))
+			print("Finishing "+channel.name)
+			con.commit()
+		isfrozen = False
+		await message.channel.send("Finished!")
+		
+	else:
+		attachments = ' '.join([str(a) for a in message.attachments])
+		reference = ''
+		if(message.reference):
+			reference = message.reference.message_id
+		cur.execute("INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+					(message.id, message.author.name, message.author.id, message.channel.name, message.channel.id, message.guild.name, message.guild.id, message.created_at, message.content, attachments, reference))
+		con.commit()
 
 @client.event
 async def on_message_delete(message):
-	print(message.id)
-	print(type(message.id))
+	global isfrozen
+	if isfrozen:
+		return
 	cur.execute("DELETE FROM messages WHERE Snowflake = ?", (message.id,))
 	con.commit()
 
 @client.event
 async def on_message_edit(before, after):
+	global isfrozen
+	if isfrozen:
+		return
 	attachments = ' '.join([str(a) for a in after.attachments])
 	reference = ''
 	if(after.reference):
