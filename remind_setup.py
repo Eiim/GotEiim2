@@ -1,8 +1,7 @@
 import datetime
+import re
 import sqlite3
 import sqlite_zstd
-import nltk
-import re
 
 # Connect to message database
 conMsg = sqlite3.connect("goteiim.db")

@@ -1,12 +1,8 @@
+import asyncio
 import datetime
 import discord
-import os
-import csv
 import sqlite3
 import sqlite_zstd
-import time
-import random
-import asyncio
 
 # Connect to database
 con = sqlite3.connect("goteiim.db")
@@ -78,7 +74,6 @@ async def on_message(message):
 	global db_lock
 	async with db_lock:
 		if message.content.startswith("$fullrefresh") and message.author.id == 234819459884253185:
-			isfrozen = True
 			print(message.guild.me.guild_permissions.read_message_history)
 			await message.channel.send("Okay! Initiating a full message refresh for this server. Clearning out old messages...")
 			cur.execute("DELETE FROM messages WHERE Server_ID = ?", (message.guild.id,))
@@ -108,7 +103,6 @@ async def on_message(message):
 					await add_message(m2)
 				print("Finishing "+channel.name)
 				con.commit()
-			isfrozen = False
 			await message.channel.send("Finished!")
 			
 		else:

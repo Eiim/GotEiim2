@@ -1,7 +1,7 @@
 import cmd
 import psutil
-import sys
 import subprocess
+import sys
 
 pnames = ['monitor', 'responder', 'messenger']
 

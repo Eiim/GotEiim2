@@ -1,8 +1,8 @@
-import asyncio
-import discord
 from os import listdir, remove
 from os.path import isfile, join
+import asyncio
 import csv
+import discord
 import time
 
 # Pycord stuff begins here

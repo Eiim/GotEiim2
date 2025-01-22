@@ -1,12 +1,14 @@
-import discord
-import pandas as pd
-import numpy as np
-import urllib.request
-import re
-import os
-import nltk
-import sqlite3
+import asyncio
 import datetime
+import discord
+import numpy as np
+import os
+import pandas as pd
+import random
+import re
+import sqlite3
+import time
+import urllib.request
 
 # Reminder database
 conRem = sqlite3.connect("reminders.db")
@@ -40,6 +42,61 @@ helptext = """GotEiim2 Help:
     - `category`: One of "server", "channel", or "user". Optional, defaults to "server".
     - `specifier`: A snowflake ID or mention of the server, channel, or user to filter on. Optional, defaults to the server/channel the message is sent in or the user who sent it. If `category` is excluded, this must be a user or channel mention.
 """
+
+remBot = []
+remOrig = []
+
+def getReminder(author, guild, timestamp, settime):
+	curRem.execute("SELECT Snowflake, Channel_ID, Created, Last_Reminded, Snooze, Status FROM reminders WHERE Author_ID = ? AND Server_ID = ?", (author, guild))
+	rems = curRem.fetchall()
+	openRem = [r for r in rems if r[5] in ["New", "Open"]]
+	if len(openRem) == 0:
+		return 0
+	create_order = np.argsort([r[2] for r in openRem], kind="mergesort")
+	create_order = create_order / max(create_order) # oldest 0, newest 1
+	remind_order = np.argsort([r[3] for r in openRem], kind="mergesort")
+	remind_order = remind_order / max(create_order) # oldest 0, newest 1
+	snooze = [r[4]/10 for r in openRem]
+	score = 2 + create_order - remind_order - snooze
+	score = [s if s > 0 else 0 for s in score]
+	if max(score) <= 0:
+		score = [1 for s in score] # Broken scores, just choose randomly
+	picked = random.choices(openRem, weights=score, k=1)[0]
+	if settime:
+		curRem.execute("UPDATE reminders SET Last_Reminded = ?, Status = 'Open' WHERE Snowflake = ?", (timestamp, picked[0]))
+	curRem.execute("UPDATE reminders SET Snooze = Snooze - 1 WHERE Snooze > 0")
+	conRem.commit()	
+	return (picked[0], picked[1])
+
+async def sendReminder(author, channel, timestamp):
+	r = getReminder(author.id, channel.guild.id, timestamp, True)
+	if r == 0:
+		await channel.send("No open reminders left for <@"+str(author.id)+">!")
+		return
+	remMsg = await channel.guild.get_channel_or_thread(r[1]).fetch_message(r[0])
+	newMsg = await channel.send("Reminding <@"+str(author.id)+">!\n"+remMsg.jump_url+"\n✅ done  ❎ invalid  💤 snooze  ⏭ next")
+	remBot.append(newMsg.id)
+	remOrig.append(r[0])
+	asyncio.create_task(newMsg.add_reaction("✅"))
+	asyncio.create_task(newMsg.add_reaction("❎"))
+	asyncio.create_task(newMsg.add_reaction("💤"))
+	asyncio.create_task(newMsg.add_reaction("⏭"))
+
+async def sendRemindStats(author, channel):
+	curRem.execute("SELECT Snooze, Status FROM reminders WHERE Author_ID = ? AND Server_ID = ?", (author.id, channel.guild.id))
+	rems = curRem.fetchall()
+	statuses = [r[1] for r in rems]
+	snoozed = sum([1 if r[0] > 0 else 0 for r in rems])
+	newRems = sum([1 if s == "New" else 0 for s in statuses])
+	openRems = sum([1 if s == "Open" else 0 for s in statuses])
+	doneRems = sum([1 if s == "Done" else 0 for s in statuses])
+	invalidRems = sum([1 if s == "Invalid" else 0 for s in statuses])
+	await channel.send("<@"+str(author.id)+"> has "+str(len(rems))+" reminders (" +
+					str(newRems)+" new, " +
+					str(openRems)+" open, " +
+					str(doneRems)+" done, " +
+					str(invalidRems)+" invalid, " +
+					str(snoozed)+" snoozed)")
 
 # Analysis functions
 def word_freq_analysis(message):
@@ -153,7 +210,9 @@ async def on_message(message):
 			else:
 				await message.channel.send("Hey! You're not allowed to touch that button!")
 		elif(message.content.startswith("$remindme")):
-			print("remindme")
+			await sendReminder(message.author, message.channel, message.created_at)
+		elif(message.content.startswith("$remindstats")):
+			await sendRemindStats(message.author, message.channel)
 		elif(len(message.content) > 1 and message.content[1].isnumeric()):
 			print("Ignoring likely money amount or LaTeX")
 		elif(len(message.content) > 1 and message.content[1] == "\\"):
@@ -167,6 +226,31 @@ async def on_message(message):
 		re.search(r"\bnotes? +to\b.*\b(self|me)\b", message.content, re.I)):
 		curRem.execute("INSERT INTO reminders VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (message.id, message.author.name, message.author.id, message.channel.id, message.guild.id, message.created_at, 0, 0, "New"))
 		conRem.commit()
+
+@client.event
+async def on_reaction_add(reaction, user):
+	if reaction.message.id in remBot and user.id != client.user.id:
+		origFlake = remOrig[remBot.index(reaction.message.id)]
+		curRem.execute("SELECT Author_ID from reminders WHERE Snowflake = ?", (origFlake,))
+		intendedUser = curRem.fetchone()[0]
+		if user.id == intendedUser:
+			if reaction.emoji == "✅":
+				curRem.execute("UPDATE reminders SET Status = 'Done' WHERE Snowflake = ?", (origFlake,))
+				conRem.commit()
+			elif reaction.emoji == "❎":
+				curRem.execute("UPDATE reminders SET Status = 'Invalid' WHERE Snowflake = ?", (origFlake,))
+				conRem.commit()
+			elif reaction.emoji == "💤":
+				curRem.execute("UPDATE reminders SET Snooze = 10 WHERE Snowflake = ?", (origFlake,))
+				conRem.commit()
+			elif reaction.emoji == "⏭":
+				await sendReminder(user, reaction.message.channel, int(time.time()))
+			else:
+				print("Emoji "+str(reaction.emoji)+" not recognized")
+		else:
+			print("Wrong user reacted!")
+	else:
+		print("Not an intended message")
 
 if not os.path.isfile('analysis/count_1w.csv'):
 	urllib.request.urlretrieve('https://norvig.com/ngrams/count_1w.txt', 'analysis/count_1w.csv')
