@@ -153,7 +153,7 @@ async def on_message(message):
 			else:
 				await message.channel.send("Hey! You're not allowed to touch that button!")
 		elif(message.content.startswith("$remindme")):
-			
+			print("remindme")
 		elif(len(message.content) > 1 and message.content[1].isnumeric()):
 			print("Ignoring likely money amount or LaTeX")
 		elif(len(message.content) > 1 and message.content[1] == "\\"):
