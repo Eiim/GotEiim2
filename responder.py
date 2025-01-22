@@ -5,6 +5,23 @@ import urllib.request
 import re
 import os
 import nltk
+import sqlite3
+import datetime
+
+# Reminder database
+conRem = sqlite3.connect("reminders.db")
+curRem = conRem.cursor()
+
+# Set datetime adapter/covnerter (converter may not be necessary)
+def adapt_datetime_epoch(val):
+    """Adapt datetime.datetime to Unix timestamp."""
+    return int(val.timestamp())
+sqlite3.register_adapter(datetime.datetime, adapt_datetime_epoch)
+
+def convert_timestamp(val):
+    """Convert Unix epoch timestamp to datetime.datetime object."""
+    return datetime.datetime.fromtimestamp(int(val))
+sqlite3.register_converter("timestamp", convert_timestamp)
 
 # Pycord stuff begins here
 intents = discord.Intents.default()
@@ -135,6 +152,8 @@ async def on_message(message):
 				print("Ignoring refresh command for monitor")
 			else:
 				await message.channel.send("Hey! You're not allowed to touch that button!")
+		elif(message.content.startswith("$remindme")):
+			
 		elif(len(message.content) > 1 and message.content[1].isnumeric()):
 			print("Ignoring likely money amount or LaTeX")
 		elif(len(message.content) > 1 and message.content[1] == "\\"):
@@ -142,7 +161,13 @@ async def on_message(message):
 		else:
 			command = message.content.split()[0][1:]
 			await message.channel.send(f"I don't know how to '{command}'. Maybe complain to <@234819459884253185>.")
-	
+	# Check for reminders
+	if (re.search(r"\bremind +me\b", message.content, re.I) or
+		(re.search(r"\bsometime\b", message.content, re.I) and re.search(r"\bi('?ll)?\b", message.content, re.I)) or
+		re.search(r"\bnotes? +to\b.*\b(self|me)\b", message.content, re.I)):
+		curRem.execute("INSERT INTO reminders VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (message.id, message.author.name, message.author.id, message.channel.id, message.guild.id, message.created_at, 0, 0, "New"))
+		conRem.commit()
+
 if not os.path.isfile('analysis/count_1w.csv'):
 	urllib.request.urlretrieve('https://norvig.com/ngrams/count_1w.txt', 'analysis/count_1w.csv')
 
