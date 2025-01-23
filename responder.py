@@ -43,6 +43,9 @@ helptext = """GotEiim2 Help:
     * `specifier`: A snowflake ID or mention of the server, channel, or user to filter on. Optional, defaults to the server/channel the message is sent in or the user who sent it. If `category` is excluded, this must be a user or channel mention.
 * `$remindme`: Get a random reminder of something you wanted to be reminded of
   * format: `$remindme`
+* `$setreminder`: Manually set a reminder for a message
+  * format: `$setreminder [message]`
+    * `message`: A link to a message. Alternatively, the command can be sent in a reply to the the message.
 * `$remindstats`: Get stats of your reminder messages
   * format: `$remindstats`
 """
