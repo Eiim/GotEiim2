@@ -35,16 +35,16 @@ client = discord.Client(intents=intents)
 stopwds = ["i","me","my","myself","we","our","ours","ourselves","you","your","yours","yourself","yourselves","he","him","his","himself","she","her","hers","herself","it","its","itself","they","them","their","theirs","themselves","what","which","who","whom","this","that","these","those","am","is","are","was","were","be","been","being","have","has","had","having","do","does","did","doing","would","should","could","ought","i'm","you're","he's","she's","it's","we're","they're","i've","you've","we've","they've","i'd","you'd","he'd","she'd","we'd","they'd","i'll","you'll","he'll","she'll","we'll","they'll","isn't","aren't","wasn't","weren't","hasn't","haven't","hadn't","doesn't","don't","didn't","won't","wouldn't","shan't","shouldn't","can't","cannot","couldn't","mustn't","let's","that's","who's","what's","here's","there's","when's","where's","why's","how's","a","an","the","and","but","if","or","because","as","until","while","of","at","by","for","with","about","against","between","into","through","during","before","after","above","below","to","from","up","down","in","out","on","off","over","under","again","further","then","once","here","there","when","where","why","how","all","any","both","each","few","more","most","other","some","such","no","nor","not","only","own","same","so","than","too","very","will"]
 
 helptext = """GotEiim2 Help:
-`$help`: Get help for GotEiim2
-  - format: `$help`
-`$topwords`: Get the most-used words compared to their overall usage in English, filtered by a server, channel, or user.
-  - format: `$topwords [category] [specifier]` or `$topwords [specifier]`
-    - `category`: One of "server", "channel", or "user". Optional, defaults to "server".
-    - `specifier`: A snowflake ID or mention of the server, channel, or user to filter on. Optional, defaults to the server/channel the message is sent in or the user who sent it. If `category` is excluded, this must be a user or channel mention.
-`$remindme`: Get a random reminder of something you wanted to be reminded of
-  - format: `$remindme`
-`$remindstats`: Get stats of your reminder messages
-  - format: `$remindstats`
+* `$help`: Get help for GotEiim2
+  * format: `$help`
+* `$topwords`: Get the most-used words compared to their overall usage in English, filtered by a server, channel, or user.
+  * format: `$topwords [category] [specifier]` or `$topwords [specifier]`
+    * `category`: One of "server", "channel", or "user". Optional, defaults to "server".
+    * `specifier`: A snowflake ID or mention of the server, channel, or user to filter on. Optional, defaults to the server/channel the message is sent in or the user who sent it. If `category` is excluded, this must be a user or channel mention.
+* `$remindme`: Get a random reminder of something you wanted to be reminded of
+  * format: `$remindme`
+* `$remindstats`: Get stats of your reminder messages
+  * format: `$remindstats`
 """
 
 remBot = []
@@ -101,6 +101,27 @@ async def sendRemindStats(author, channel):
 					str(doneRems)+" done, " +
 					str(invalidRems)+" invalid, " +
 					str(snoozed)+" snoozed)")
+
+async def setReminder(message):
+	commandparts = message.content.split()
+	print(commandparts)
+	remMsg = None
+	if len(commandparts) < 2 and message.reference is not None:
+		remMsg = message.reference.resolved
+	else:
+		ids = re.match(r"https?:\/\/discord.com\/channels\/(\d+)/(\d+)/(\d+)", commandparts[1])
+		if ids is not None:
+			print(ids.groups())
+			remMsg = await client.get_guild(int(ids.group(1))).get_channel_or_thread(int(ids.group(2))).fetch_message(int(ids.group(3)))
+	if remMsg is None:
+		await message.reply("Can't figure out what message you want to set a reminder for!")
+		return
+	if remMsg.author.id != message.author.id:
+		await message.reply("You can only set a reminder for your own messages!")
+		return
+	curRem.execute("INSERT INTO reminders VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (remMsg.id, remMsg.author.name, remMsg.author.id, remMsg.channel.id, remMsg.guild.id, remMsg.created_at, 0, 0, "New"))
+	conRem.commit()
+	await message.add_reaction("👍")
 
 # Analysis functions
 def word_freq_analysis(message):
@@ -217,6 +238,8 @@ async def on_message(message):
 			await sendReminder(message.author, message.channel, message.created_at)
 		elif(message.content.startswith("$remindstats")):
 			await sendRemindStats(message.author, message.channel)
+		elif(message.content.startswith("$setreminder")):
+			await setReminder(message)
 		elif(len(message.content) > 1 and message.content[1].isnumeric()):
 			print("Ignoring likely money amount or LaTeX")
 		elif(len(message.content) > 1 and message.content[1] == "\\"):
@@ -253,8 +276,6 @@ async def on_reaction_add(reaction, user):
 				print("Emoji "+str(reaction.emoji)+" not recognized")
 		else:
 			print("Wrong user reacted!")
-	else:
-		print("Not an intended message")
 
 if not os.path.isfile('analysis/count_1w.csv'):
 	urllib.request.urlretrieve('https://norvig.com/ngrams/count_1w.txt', 'analysis/count_1w.csv')
