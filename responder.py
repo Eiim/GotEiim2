@@ -73,7 +73,6 @@ def getReminder(author, guild, timestamp, settime):
 		curRem.execute("UPDATE reminders SET Last_Reminded = ?, Status = 'Open' WHERE Snowflake = ?", (timestamp, picked[0]))
 	curRem.execute("UPDATE reminders SET Snooze = Snooze - 1 WHERE Snooze > 0")
 	conRem.commit()
-	print(picked)
 	return (picked[0], picked[1])
 
 async def sendReminder(author, channel, timestamp):
