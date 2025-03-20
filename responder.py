@@ -62,7 +62,7 @@ def getReminder(author, guild, timestamp, settime):
 	create_order = np.argsort([r[2] for r in openRem], kind="mergesort")
 	create_order = create_order / max(create_order) # oldest 0, newest 1
 	remind_order = np.argsort([r[3] for r in openRem], kind="mergesort")
-	remind_order = remind_order / max(create_order) # oldest 0, newest 1
+	remind_order = remind_order / max(remind_order) # oldest 0, newest 1
 	snooze = [r[4]/10 for r in openRem]
 	score = 2 + create_order - remind_order - snooze
 	score = [s if s > 0 else 0 for s in score]
@@ -72,7 +72,8 @@ def getReminder(author, guild, timestamp, settime):
 	if settime:
 		curRem.execute("UPDATE reminders SET Last_Reminded = ?, Status = 'Open' WHERE Snowflake = ?", (timestamp, picked[0]))
 	curRem.execute("UPDATE reminders SET Snooze = Snooze - 1 WHERE Snooze > 0")
-	conRem.commit()	
+	conRem.commit()
+	print(picked)
 	return (picked[0], picked[1])
 
 async def sendReminder(author, channel, timestamp):
@@ -80,7 +81,8 @@ async def sendReminder(author, channel, timestamp):
 	if r == 0:
 		await channel.send("No open reminders left for <@"+str(author.id)+">!")
 		return
-	remMsg = await channel.guild.get_channel_or_thread(r[1]).fetch_message(r[0])
+	remMsgChl = await channel.guild.fetch_channel(r[1])
+	remMsg = await remMsgChl.fetch_message(r[0])
 	newMsg = await channel.send("Reminding <@"+str(author.id)+">!\n"+remMsg.jump_url+"\n✅ done  ❎ invalid  💤 snooze  ⏭ next")
 	remBot.append(newMsg.id)
 	remOrig.append(r[0])
