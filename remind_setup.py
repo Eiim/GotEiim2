@@ -35,6 +35,12 @@ curRem.execute("""CREATE TABLE IF NOT EXISTS reminders (
 				Snooze INTEGER,
 				Status TEXT
 				)""")
+curRem.execute("""CREATE TABLE IF NOT EXISTS subscriptions (
+				User_ID INTEGER,
+				Server_ID INTEGER,
+				Created INTEGER,
+				Last_Reminded INTEGER
+				)""")
 conRem.commit()
 
 print("Connected to databases")

@@ -9,6 +9,9 @@ import re
 import sqlite3
 import time
 import urllib.request
+import random
+import sched
+import math
 
 # Reminder database
 conRem = sqlite3.connect("reminders.db")
@@ -48,10 +51,18 @@ helptext = """GotEiim2 Help:
     * `message`: A link to a message. Alternatively, the command can be sent in a reply to the the message.
 * `$remindstats`: Get stats of your reminder messages
   * format: `$remindstats`
+* `$subreminders`: Subscribe to random (approximately weekly) automated reminders
+  * format: `$subreminders`
+* `$unsubreminders`: Unsubscribe from automated reminders
+  * format: `$unsubreminders`
 """
 
 remBot = []
 remOrig = []
+
+# Scheduler for automated reminders
+s = sched.scheduler(time.time, time.sleep)
+schedEvents = {}
 
 def getReminder(author, guild, timestamp, settime):
 	curRem.execute("SELECT Snowflake, Channel_ID, Created, Last_Reminded, Snooze, Status FROM reminders WHERE Author_ID = ? AND Server_ID = ?", (author, guild))
@@ -106,6 +117,17 @@ async def sendRemindStats(author, channel):
 					str(invalidRems)+" invalid, " +
 					str(snoozed)+" snoozed)")
 
+async def checkReminder(user, server, schedTime):
+	curRem.execute("SELECT Last_Reminded FROM subscriptions WHERE User_ID = ? AND Server_ID = ?", (user, server))
+	lastTime = curRem.fetchall()[0][0]
+	nowTime = int(time.time())
+	timeDelta = (nowTime - lastTime) / 3600
+	if random.random() < (timeDelta / 336)^8: # 336 hours is 14 days, 8 is selected to make average about a week
+		curRem.execute("UPDATE subscriptions SET Last_Reminded = ? WHERE User_ID = ? AND Server_ID = ?", (nowTime, user, server))
+		conRem.commit()
+		sendReminder(user, 1353174170778734632, nowTime) # semi-temporarily hard-code channel ID
+	schedEvents[user] = s.enterabs(schedTime + 3600, 10, checkReminder, argument=(user, server, schedTime + 3600))
+
 async def setReminder(message):
 	commandparts = message.content.split()
 	print(commandparts)
@@ -126,6 +148,31 @@ async def setReminder(message):
 	curRem.execute("INSERT INTO reminders VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (remMsg.id, remMsg.author.name, remMsg.author.id, remMsg.channel.id, remMsg.guild.id, remMsg.created_at, 0, 0, "New"))
 	conRem.commit()
 	await message.add_reaction("👍")
+
+async def subscribeReminders(message):
+	curRem.execute("SELECT Last_Reminded FROM subscriptions WHERE User_ID = ? AND Server_ID = ?", (message.author.id, message.guild.id))
+	existingSubs = curRem.fetchall()
+	if len(existingSubs) > 0:
+		await message.reply("You're already subscribed!")
+		return
+	curRem.execute("INSERT INTO subscriptions VALUES (?, ?, ?, ?)", (message.author.id, message.guild.id, int(time.time()), int(time.time())))
+	conRem.commit()
+	nextHour = math.ceil(time.time()/3600)*3600
+	schedEvents[message.author.id] = s.enterabs(nextHour, 10, checkReminder, argument=(message.author.id, message.guild.id, nextHour))
+	await message.reply("You're set up to receive random (roughly weekly) automated reminders!")
+
+async def unsubscribeReminders(message):
+	curRem.execute("SELECT Last_Reminded FROM subscriptions WHERE User_ID = ? AND Server_ID = ?", (message.author.id, message.guild.id))
+	existingSubs = curRem.fetchall()
+	if len(existingSubs) == 0:
+		await message.reply("You're not subscribed to reminder notifications!")
+		return
+	curRem.execute("DELETE FROM subscriptions WHERE Author_ID = ?, Server_ID = ?", (message.author.id, message.guild.id))
+	conRem.commit()
+	if message.author.id in schedEvents:
+		s.cancel(schedEvents[message.author.id])
+		del schedEvents[message.author.id]
+	await message.reply("You've unsubscribed from reminder notifications.")
 
 # Analysis functions
 def word_freq_analysis(message):
@@ -244,6 +291,10 @@ async def on_message(message):
 			await sendRemindStats(message.author, message.channel)
 		elif(message.content.startswith("$setreminder")):
 			await setReminder(message)
+		elif(message.content.startswith("$subreminders")):
+			await subscribeReminders(message)
+		elif(message.content.startswith("$unsubreminders")):
+			await unsubscribeReminders(message)
 		elif(len(message.content) > 1 and message.content[1].isnumeric()):
 			print("Ignoring likely money amount or LaTeX")
 		elif(len(message.content) > 1 and message.content[1] == "\\"):
@@ -285,3 +336,9 @@ if not os.path.isfile('analysis/count_1w.csv'):
 	urllib.request.urlretrieve('https://norvig.com/ngrams/count_1w.txt', 'analysis/count_1w.csv')
 
 client.run(open('secret.txt', 'r').readline())
+
+curRem.execute("SELECT * FROM subscriptions")
+subs = curRem.fetchall()
+nextHour = math.ceil(time.time()/3600)*3600
+for sub in subs:
+	schedEvents[sub[0]] = s.enterabs(nextHour, 10, checkReminder, argument=(sub[0], sub[1], nextHour))
