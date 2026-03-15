@@ -12,6 +12,11 @@ import urllib.request
 import random
 import sched
 import math
+import threading
+import functools
+import logging
+
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s")
 
 # Reminder database
 conRem = sqlite3.connect("reminders.db")
@@ -19,13 +24,13 @@ curRem = conRem.cursor()
 
 # Set datetime adapter/covnerter (converter may not be necessary)
 def adapt_datetime_epoch(val):
-    """Adapt datetime.datetime to Unix timestamp."""
-    return int(val.timestamp())
+	"""Adapt datetime.datetime to Unix timestamp."""
+	return int(val.timestamp())
 sqlite3.register_adapter(datetime.datetime, adapt_datetime_epoch)
 
 def convert_timestamp(val):
-    """Convert Unix epoch timestamp to datetime.datetime object."""
-    return datetime.datetime.fromtimestamp(int(val))
+	"""Convert Unix epoch timestamp to datetime.datetime object."""
+	return datetime.datetime.fromtimestamp(int(val))
 sqlite3.register_converter("timestamp", convert_timestamp)
 
 # Pycord stuff begins here
@@ -64,21 +69,54 @@ remOrig = []
 s = sched.scheduler(time.time, time.sleep)
 schedEvents = {}
 
+# Async wrapper generator for scheduler
+def make_wrapper(*args, **kwargs):
+	return lambda: asyncio.get_event_loop().create_task(async_task(*args, **kwargs))
+
+def schedule_coro(loop, coro_fn, *args, **kwargs):
+	@functools.wraps(coro_fn)
+	def _runner():
+		logging.debug("[sched] fired %s%r", coro_fn.__name__, args)
+		try:
+			asyncio.run_coroutine_threadsafe(coro_fn(*args, **kwargs), loop)
+		except Exception:
+			logging.exception("[sched] %s crashed", coro_fn.__name__)
+	return _runner
+
 def getReminder(author, guild, timestamp, settime):
 	curRem.execute("SELECT Snowflake, Channel_ID, Created, Last_Reminded, Snooze, Status FROM reminders WHERE Author_ID = ? AND Server_ID = ?", (author, guild))
 	rems = curRem.fetchall()
 	openRem = [r for r in rems if r[5] in ["New", "Open"]]
-	if len(openRem) == 0:
+	n = len(openRem)
+	if n == 0:
 		return 0
-	create_order = np.argsort([r[2] for r in openRem], kind="mergesort")
-	create_order = create_order / max(create_order) # oldest 0, newest 1
-	remind_order = np.argsort([r[3] for r in openRem], kind="mergesort")
-	remind_order = remind_order / max(remind_order) # oldest 0, newest 1
-	snooze = [r[4]/10 for r in openRem]
-	score = 2 + create_order - remind_order - snooze
-	score = [s if s > 0 else 0 for s in score]
+
+	# Snooze penalty — exponential so high snooze values are near-zero weight
+	# snooze=0 -> 1.0, snooze=2 -> ~0.37, snooze=5 -> ~0.082, snooze=10 -> ~0.0067
+	snooze_weight = np.array([math.exp(-r[4] * 0.5) for r in openRem])
+
+	# Recency weight — rank by Last_Reminded, most recent gets near-zero weight
+	# Uses rank rather than raw timestamps to avoid issues with bunched values
+	if n > 1:
+		remind_ranks = np.argsort(np.argsort([r[3] for r in openRem], kind="mergesort"))
+		# oldest=0, most recent=n-1; invert and normalise so oldest->1, newest->~0
+		recency_weight = (n - 1 - remind_ranks) / (n - 1)
+	else:
+		recency_weight = np.array([1.0])
+
+	# Creation date nudge — newer reminders score slightly higher
+	if n > 1:
+		create_ranks = np.argsort(np.argsort([r[2] for r in openRem], kind="mergesort"))
+		create_weight = create_ranks / (n - 1)  # oldest->0, newest->1
+	else:
+		create_weight = np.array([1.0])
+
+	# Combine: recency is primary, creation is a more gentle nudge, snooze gates everything
+	score = snooze_weight * (recency_weight + 0.33 * create_weight)
+
 	if max(score) <= 0:
-		score = [1 for s in score] # Broken scores, just choose randomly
+		score = np.ones(n)  # fallback: all weights collapsed, choose randomly
+
 	picked = random.choices(openRem, weights=score, k=1)[0]
 	if settime:
 		curRem.execute("UPDATE reminders SET Last_Reminded = ?, Status = 'Open' WHERE Snowflake = ?", (timestamp, picked[0]))
@@ -118,15 +156,17 @@ async def sendRemindStats(author, channel):
 					str(snoozed)+" snoozed)")
 
 async def checkReminder(user, server, schedTime):
+	print("checking rem...")
 	curRem.execute("SELECT Last_Reminded FROM subscriptions WHERE User_ID = ? AND Server_ID = ?", (user, server))
 	lastTime = curRem.fetchall()[0][0]
 	nowTime = int(time.time())
 	timeDelta = (nowTime - lastTime) / 3600
-	if random.random() < (timeDelta / 336)^8: # 336 hours is 14 days, 8 is selected to make average about a week
+	print(timeDelta)
+	if random.random() < (timeDelta / 336)**8: # 336 hours is 14 days, 8 is selected to make average about a week
 		curRem.execute("UPDATE subscriptions SET Last_Reminded = ? WHERE User_ID = ? AND Server_ID = ?", (nowTime, user, server))
 		conRem.commit()
-		sendReminder(user, 1353174170778734632, nowTime) # semi-temporarily hard-code channel ID
-	schedEvents[user] = s.enterabs(schedTime + 3600, 10, checkReminder, argument=(user, server, schedTime + 3600))
+		await sendReminder(user, client.get_guild(server).get_channel_or_thread(1353174170778734632), nowTime) # semi-temporarily hard-code channel ID
+	schedEvents[user] = s.enterabs(schedTime + 3600, 10, lambda *a: asyncio.create_task(checkReminder(user, server, schedTime + 3600)))
 
 async def setReminder(message):
 	commandparts = message.content.split()
@@ -158,8 +198,8 @@ async def subscribeReminders(message):
 	curRem.execute("INSERT INTO subscriptions VALUES (?, ?, ?, ?)", (message.author.id, message.guild.id, int(time.time()), int(time.time())))
 	conRem.commit()
 	nextHour = math.ceil(time.time()/3600)*3600
-	schedEvents[message.author.id] = s.enterabs(nextHour, 10, checkReminder, argument=(message.author.id, message.guild.id, nextHour))
-	await message.reply("You're set up to receive random (roughly weekly) automated reminders!")
+	schedEvents[message.author.id] = s.enterabs(nextHour, 10, schedule_coro(loop, checkReminder, message.author.id, message.guild.id, nextHour))
+	await message.reply("You're set up to receive random (roughly weekly) automated reminders! ("+str(nextHour)+")")
 
 async def unsubscribeReminders(message):
 	curRem.execute("SELECT Last_Reminded FROM subscriptions WHERE User_ID = ? AND Server_ID = ?", (message.author.id, message.guild.id))
@@ -167,7 +207,7 @@ async def unsubscribeReminders(message):
 	if len(existingSubs) == 0:
 		await message.reply("You're not subscribed to reminder notifications!")
 		return
-	curRem.execute("DELETE FROM subscriptions WHERE Author_ID = ?, Server_ID = ?", (message.author.id, message.guild.id))
+	curRem.execute("DELETE FROM subscriptions WHERE User_ID = ? AND Server_ID = ?", (message.author.id, message.guild.id))
 	conRem.commit()
 	if message.author.id in schedEvents:
 		s.cancel(schedEvents[message.author.id])
@@ -268,6 +308,13 @@ def parseConversations(snowflakeFrom):
 
 @client.event
 async def on_ready():
+	loop = asyncio.get_running_loop()
+	curRem.execute("SELECT * FROM subscriptions")
+	subs = curRem.fetchall()
+	next_hour = math.ceil(time.time()/3600)*3600
+	for user_id, guild_id, *_ in subs:
+		schedEvents[user_id] = s.enterabs(next_hour, 10, schedule_coro(loop, checkReminder, user_id, guild_id, next_hour))
+	threading.Thread(target=scheduler_loop, daemon=True).start()
 	print(f'Responder logged in as {client.user}')
 
 @client.event
@@ -335,10 +382,9 @@ async def on_reaction_add(reaction, user):
 if not os.path.isfile('analysis/count_1w.csv'):
 	urllib.request.urlretrieve('https://norvig.com/ngrams/count_1w.txt', 'analysis/count_1w.csv')
 
-client.run(open('secret.txt', 'r').readline())
+def scheduler_loop():
+	while True:
+		s.run(blocking=False)
+		time.sleep(0.5)
 
-curRem.execute("SELECT * FROM subscriptions")
-subs = curRem.fetchall()
-nextHour = math.ceil(time.time()/3600)*3600
-for sub in subs:
-	schedEvents[sub[0]] = s.enterabs(nextHour, 10, checkReminder, argument=(sub[0], sub[1], nextHour))
+client.run(open('secret.txt', 'r').readline())
